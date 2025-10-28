@@ -1,4 +1,4 @@
-package com.mpowerplus.shipment_tracker_system;
+package com.mpowerplus.shipmenttrackersystem;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
