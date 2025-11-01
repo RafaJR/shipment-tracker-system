@@ -55,3 +55,45 @@ COMMENT ON COLUMN trackings.last_location IS 'Last known location of the shipmen
 COMMENT ON COLUMN trackings.carrier IS 'Shipping carrier handling the delivery';
 COMMENT ON COLUMN trackings.estimated_delivery IS 'Estimated delivery date and time';
 COMMENT ON COLUMN trackings.last_checked_at IS 'Timestamp of last external API check';
+
+-- Drop table if exists (for clean recreation)
+DROP TABLE IF EXISTS notifications CASCADE;
+
+-- =====================================================
+-- Table: notifications
+-- Description: Stores notification records for shipment status changes
+-- =====================================================
+CREATE TABLE notifications (
+    id BIGSERIAL PRIMARY KEY,
+    tracking_id VARCHAR(50) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    recipient VARCHAR(255) NOT NULL,
+    subject VARCHAR(500),
+    message TEXT,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    sent_at TIMESTAMP,
+    retry_count INTEGER NOT NULL DEFAULT 0,
+    error_message TEXT,
+
+    -- Constraints
+    CONSTRAINT chk_notification_type CHECK (type IN ('EMAIL', 'SMS', 'PUSH', 'IN_APP')),
+    CONSTRAINT chk_notification_status CHECK (status IN ('PENDING', 'SENT', 'FAILED', 'RETRYING'))
+);
+
+-- =====================================================
+-- Indexes for notifications
+-- =====================================================
+CREATE INDEX idx_notification_tracking_id ON notifications(tracking_id);
+CREATE INDEX idx_notification_status ON notifications(status);
+CREATE INDEX idx_notification_created_at ON notifications(created_at);
+
+-- =====================================================
+-- Comments for notifications
+-- =====================================================
+COMMENT ON TABLE notifications IS 'Stores notification records sent to customers';
+COMMENT ON COLUMN notifications.tracking_id IS 'Reference to the shipment tracking ID';
+COMMENT ON COLUMN notifications.type IS 'Type of notification channel used';
+COMMENT ON COLUMN notifications.status IS 'Current status of the notification';
+COMMENT ON COLUMN notifications.recipient IS 'Recipient address (email, phone, etc.)';
+COMMENT ON COLUMN notifications.retry_count IS 'Number of retry attempts made';
