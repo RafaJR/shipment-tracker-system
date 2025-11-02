@@ -885,14 +885,65 @@ curl -X POST http://localhost:8080/api/actuator/loggers/com.mpowerplus.shipmentt
 
 #### Prometheus Metrics
 
-The application exposes **Prometheus-compatible metrics** for monitoring and alerting.
+The application exposes **Prometheus-compatible metrics** for monitoring and alerting, including **custom business metrics** powered by Micrometer.
 
 **Prometheus Endpoint:**
 ```
 http://localhost:8080/api/actuator/prometheus
 ```
 
-**Sample Metrics:**
+**Custom Business Metrics:**
+
+The application includes comprehensive custom metrics for monitoring business operations:
+
+**TrackingService Metrics:**
+| Metric Name | Type | Description |
+|------------|------|-------------|
+| `shipment.tracking.checks.total` | Counter | Total number of tracking status checks |
+| `shipment.tracking.checks.success` | Counter | Number of successful tracking checks |
+| `shipment.tracking.checks.failure` | Counter | Number of failed tracking checks |
+| `shipment.tracking.checks.duration` | Timer | Duration of tracking status checks (seconds) |
+| `shipment.tracking.created.total` | Counter | Total number of trackings created |
+| `shipment.tracking.status.changes.total` | Counter | Total number of status changes detected |
+
+**NotificationService Metrics:**
+| Metric Name | Type | Description |
+|------------|------|-------------|
+| `shipment.notifications.sent.total` | Counter | Total number of notifications sent successfully |
+| `shipment.notifications.failed.total` | Counter | Total number of failed notifications |
+| `shipment.notifications.by.type` | Counter | Number of notifications by type (EMAIL, SMS, etc.) |
+| `shipment.notifications.retries.total` | Counter | Total number of notification retry attempts |
+| `shipment.notifications.processing.duration` | Timer | Duration of notification processing (seconds) |
+
+**Kafka Event Metrics:**
+| Metric Name | Type | Description |
+|------------|------|-------------|
+| `shipment.kafka.events.published.total` | Counter | Total number of Kafka events published |
+| `shipment.kafka.events.consumed.total` | Counter | Total number of Kafka events consumed |
+| `shipment.kafka.events.errors.total` | Counter | Total number of event processing errors |
+
+**External API Metrics:**
+| Metric Name | Type | Description |
+|------------|------|-------------|
+| `shipment.external.api.calls.total` | Counter | Total number of external API calls |
+| `shipment.external.api.calls.success` | Counter | Number of successful API calls |
+| `shipment.external.api.calls.failure` | Counter | Number of failed API calls |
+| `shipment.external.api.calls.duration` | Timer | Duration of external API calls (seconds) |
+
+**Querying Custom Metrics:**
+
+```bash
+# View tracking checks count
+curl http://localhost:8080/api/actuator/metrics/shipment.tracking.checks.total
+
+# View notification success rate
+curl http://localhost:8080/api/actuator/metrics/shipment.notifications.sent.total
+
+# View Kafka event processing
+curl http://localhost:8080/api/actuator/metrics/shipment.kafka.events.consumed.total
+```
+
+**Sample Prometheus Export:**
 
 ```
 # HELP jvm_memory_used_bytes The amount of used memory

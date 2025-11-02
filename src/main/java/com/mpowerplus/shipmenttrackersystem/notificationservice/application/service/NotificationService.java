@@ -6,6 +6,8 @@ import com.mpowerplus.shipmenttrackersystem.notificationservice.domain.model.Not
 import com.mpowerplus.shipmenttrackersystem.notificationservice.domain.model.NotificationType;
 import com.mpowerplus.shipmenttrackersystem.notificationservice.domain.repository.NotificationRepository;
 import com.mpowerplus.shipmenttrackersystem.shared.domain.event.ShipmentStatusChangedEvent;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Application service for handling notifications.
  * Orchestrates notification creation and sending.
+ * Records metrics for monitoring notification operations.
  */
 @Service
 @RequiredArgsConstructor
@@ -23,6 +26,13 @@ public class NotificationService {
     private final NotificationRepository notificationRepository;
     private final NotificationSender notificationSender;
 
+    // Metrics
+    private final Counter notificationsSentCounter;
+    private final Counter notificationsFailedCounter;
+    private final Counter notificationsByTypeCounter;
+    private final Counter notificationsRetriesCounter;
+    private final Timer notificationProcessingDurationTimer;
+
     /**
      * Processes a shipment status change event and sends notifications.
      */
@@ -30,41 +40,53 @@ public class NotificationService {
     public void processStatusChangeEvent(ShipmentStatusChangedEvent event) {
         log.info("Processing status change event for tracking ID: {}", event.getTrackingId());
 
-        String recipient = determineRecipient(event.getTrackingId());
-        String subject = buildSubject(event);
-        String message = buildMessage(event);
+        notificationProcessingDurationTimer.record(() -> {
+            String recipient = determineRecipient(event.getTrackingId());
+            String subject = buildSubject(event);
+            String message = buildMessage(event);
 
-        // Create notification for EMAIL
-        Notification notification = Notification.create(
-                event.getTrackingId(),
-                NotificationType.EMAIL,
-                recipient,
-                subject,
-                message
-        );
-
-        // Save notification
-        notification = notificationRepository.save(notification);
-
-        // Send notification
-        try {
-            notificationSender.send(
-                    notification.getType(),
-                    notification.getRecipient(),
-                    notification.getSubject(),
-                    notification.getMessage()
+            // Create notification for EMAIL
+            Notification notification = Notification.create(
+                    event.getTrackingId(),
+                    NotificationType.EMAIL,
+                    recipient,
+                    subject,
+                    message
             );
 
-            notification.markAsSent();
-            log.info("Notification sent successfully for tracking ID: {}", event.getTrackingId());
+            // Save notification
+            notification = notificationRepository.save(notification);
 
-        } catch (NotificationSendException e) {
-            log.error("Failed to send notification for tracking ID: {}", event.getTrackingId(), e);
-            notification.markAsFailed(e.getMessage());
-        }
+            // Send notification
+            try {
+                notificationSender.send(
+                        notification.getType(),
+                        notification.getRecipient(),
+                        notification.getSubject(),
+                        notification.getMessage()
+                );
 
-        // Update notification status
-        notificationRepository.save(notification);
+                notification.markAsSent();
+                notificationsSentCounter.increment();
+                notificationsByTypeCounter.increment();
+                log.info("Notification sent successfully for tracking ID: {}", event.getTrackingId());
+
+            } catch (NotificationSendException e) {
+                log.error("Failed to send notification for tracking ID: {}", event.getTrackingId(), e);
+                notification.markAsFailed(e.getMessage());
+                notificationsFailedCounter.increment();
+
+                // Retry if allowed
+                if (notification.canRetry()) {
+                    notification.retry();
+                    notificationsRetriesCounter.increment();
+                    log.info("Notification marked for retry. Retry count: {}", notification.getRetryCount());
+                }
+            }
+
+            // Update notification status
+            notificationRepository.save(notification);
+        });
     }
 
     /**

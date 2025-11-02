@@ -12,6 +12,8 @@ import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.StatusC
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.Tracking;
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.TrackingId;
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.repository.TrackingRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ import java.util.stream.Collectors;
  * - Orchestrates domain objects
  * - Delegates to output ports
  * - Manages transactions
+ * - Records metrics for monitoring
  */
 @Service
 @Transactional
@@ -41,34 +44,53 @@ public class TrackingApplicationService implements TrackingUseCase {
     private final ExternalShipmentApiPort externalApiPort;
     private final EventPublisherPort eventPublisherPort;
 
+    // Metrics
+    private final Counter trackingChecksCounter;
+    private final Counter trackingChecksSuccessCounter;
+    private final Counter trackingChecksFailureCounter;
+    private final Timer trackingChecksDurationTimer;
+    private final Counter trackingCreatedCounter;
+    private final Counter trackingStatusChangesCounter;
+
     @Override
     public TrackingResponse checkTrackingStatus(TrackingRequest request) {
         log.info("Checking tracking status for: {}", request.trackingId());
+        trackingChecksCounter.increment();
 
-        TrackingId trackingId = TrackingId.of(request.trackingId());
+        Timer.Sample sample = Timer.start();
+        try {
+            TrackingId trackingId = TrackingId.of(request.trackingId());
 
-        // Fetch current status from external API
-        ExternalShipmentData externalData = externalApiPort.fetchShipmentStatus(request.trackingId());
+            // Fetch current status from external API
+            ExternalShipmentData externalData = externalApiPort.fetchShipmentStatus(request.trackingId());
 
-        // Find or create tracking record
-        Tracking tracking = trackingRepository.findByTrackingId(trackingId)
-                .orElseGet(() -> createNewTracking(trackingId, externalData));
+            // Find or create tracking record
+            Tracking tracking = trackingRepository.findByTrackingId(trackingId)
+                    .orElseGet(() -> createNewTracking(trackingId, externalData));
 
-        // Update status and check for changes
-        ShipmentStatus newStatus = mapToShipmentStatus(externalData.status());
-        Optional<StatusChange> statusChange = tracking.updateStatus(newStatus, externalData.location());
+            // Update status and check for changes
+            ShipmentStatus newStatus = mapToShipmentStatus(externalData.status());
+            Optional<StatusChange> statusChange = tracking.updateStatus(newStatus, externalData.location());
 
-        // Save updated tracking
-        Tracking savedTracking = trackingRepository.save(tracking);
+            // Save updated tracking
+            Tracking savedTracking = trackingRepository.save(tracking);
 
-        // Publish event if status changed
-        statusChange.ifPresent(change -> {
-            log.info("Status changed from {} to {} for tracking {}",
-                    change.getOldStatus(), change.getNewStatus(), trackingId);
-            publishStatusChangeEvent(change);
-        });
+            // Publish event if status changed
+            statusChange.ifPresent(change -> {
+                log.info("Status changed from {} to {} for tracking {}",
+                        change.getOldStatus(), change.getNewStatus(), trackingId);
+                trackingStatusChangesCounter.increment();
+                publishStatusChangeEvent(change);
+            });
 
-        return mapToResponse(savedTracking);
+            trackingChecksSuccessCounter.increment();
+            return mapToResponse(savedTracking);
+        } catch (Exception e) {
+            trackingChecksFailureCounter.increment();
+            throw e;
+        } finally {
+            sample.stop(trackingChecksDurationTimer);
+        }
     }
 
     @Override
@@ -111,6 +133,7 @@ public class TrackingApplicationService implements TrackingUseCase {
         Tracking tracking = createNewTracking(trackingId, externalData);
         Tracking savedTracking = trackingRepository.save(tracking);
 
+        trackingCreatedCounter.increment();
         log.info("Created tracking: {}", trackingId);
         return mapToResponse(savedTracking);
     }

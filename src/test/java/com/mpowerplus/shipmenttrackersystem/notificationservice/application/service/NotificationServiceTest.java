@@ -7,6 +7,8 @@ import com.mpowerplus.shipmenttrackersystem.notificationservice.domain.model.Not
 import com.mpowerplus.shipmenttrackersystem.notificationservice.domain.model.NotificationType;
 import com.mpowerplus.shipmenttrackersystem.notificationservice.domain.repository.NotificationRepository;
 import com.mpowerplus.shipmenttrackersystem.shared.domain.event.ShipmentStatusChangedEvent;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +36,21 @@ class NotificationServiceTest {
     @Mock
     private NotificationSender notificationSender;
 
+    @Mock
+    private Counter notificationsSentCounter;
+
+    @Mock
+    private Counter notificationsFailedCounter;
+
+    @Mock
+    private Counter notificationsByTypeCounter;
+
+    @Mock
+    private Counter notificationsRetriesCounter;
+
+    @Mock
+    private Timer notificationProcessingDurationTimer;
+
     @InjectMocks
     private NotificationService notificationService;
 
@@ -52,6 +69,13 @@ class NotificationServiceTest {
                 .source("tracking-service")
                 .eventVersion("1.0")
                 .build();
+
+        // Setup Timer mock to execute the Runnable immediately
+        doAnswer(invocation -> {
+            Runnable runnable = invocation.getArgument(0);
+            runnable.run();
+            return null;
+        }).when(notificationProcessingDurationTimer).record(any(Runnable.class));
     }
 
     @Test
@@ -112,7 +136,7 @@ class NotificationServiceTest {
         verify(notificationRepository, times(2)).save(notificationCaptor.capture());
 
         Notification secondSave = notificationCaptor.getAllValues().get(1);
-        assertThat(secondSave.getStatus()).isEqualTo(NotificationStatus.FAILED);
+        assertThat(secondSave.getStatus()).isEqualTo(NotificationStatus.RETRYING);
         assertThat(secondSave.getErrorMessage()).contains("SMTP connection failed");
     }
 

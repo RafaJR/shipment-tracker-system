@@ -9,6 +9,8 @@ import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.Shipmen
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.Tracking;
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.TrackingId;
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.repository.TrackingRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,6 +41,24 @@ class TrackingApplicationServiceTest {
 
     @Mock
     private EventPublisherPort eventPublisherPort;
+
+    @Mock
+    private Counter trackingChecksCounter;
+
+    @Mock
+    private Counter trackingChecksSuccessCounter;
+
+    @Mock
+    private Counter trackingChecksFailureCounter;
+
+    @Mock
+    private Timer trackingChecksDurationTimer;
+
+    @Mock
+    private Counter trackingCreatedCounter;
+
+    @Mock
+    private Counter trackingStatusChangesCounter;
 
     @InjectMocks
     private TrackingApplicationService trackingApplicationService;
