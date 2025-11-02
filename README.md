@@ -104,8 +104,6 @@ The system consists of two microservices communicating via Kafka events:
 │  │  REST API (TrackingController)                             │ │
 │  │  • POST   /api/trackings                                   │ │
 │  │  • GET    /api/trackings/{trackingId}                      │ │
-│  │  • PUT    /api/trackings/{trackingId}                      │ │
-│  │  • DELETE /api/trackings/{trackingId}                      │ │
 │  │  • GET    /api/trackings                                   │ │
 │  └──────────────────────┬─────────────────────────────────────┘ │
 │                         │                                         │
@@ -366,8 +364,6 @@ Base path: `/api/trackings`
 |--------|----------|-------------|--------------|----------|
 | **POST** | `/api/trackings` | Create new shipment tracking | TrackingRequest | TrackingResponse (201) |
 | **GET** | `/api/trackings/{trackingId}` | Get tracking by ID | - | TrackingResponse (200) |
-| **PUT** | `/api/trackings/{trackingId}` | Update tracking status | TrackingRequest | TrackingResponse (200) |
-| **DELETE** | `/api/trackings/{trackingId}` | Delete tracking | - | 204 No Content |
 | **GET** | `/api/trackings` | List all trackings | - | List<TrackingResponse> (200) |
 
 **Request Body Example (TrackingRequest):**
@@ -459,22 +455,8 @@ curl -X POST http://localhost:8080/api/trackings \
 # Get tracking by ID
 curl http://localhost:8080/api/trackings/TRK123456789
 
-# Update tracking status
-curl -X PUT http://localhost:8080/api/trackings/TRK123456789 \
-  -H "Content-Type: application/json" \
-  -d '{
-    "trackingId": "TRK123456789",
-    "currentStatus": "IN_TRANSIT",
-    "lastLocation": "Distribution Center - Madrid",
-    "carrier": "DHL Express",
-    "estimatedDelivery": "2025-11-05T14:00:00"
-  }'
-
 # Get all trackings
 curl http://localhost:8080/api/trackings
-
-# Delete tracking
-curl -X DELETE http://localhost:8080/api/trackings/TRK123456789
 ```
 
 **Using Browser:**
