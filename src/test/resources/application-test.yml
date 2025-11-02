@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: shipment-tracker-system-test
+
+  # H2 in-memory database for tests
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  h2:
+    console:
+      enabled: false
+
+  # Kafka disabled for unit/integration tests
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      group-id: test-consumer-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+
+# External API mock configuration
+external:
+  api:
+    shipment:
+      base-url: http://localhost:8080/mock
+      timeout: 5000
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.mpowerplus.shipmenttrackersystem: DEBUG
+    org.springframework.kafka: WARN

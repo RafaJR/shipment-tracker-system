@@ -1,0 +1,159 @@
+# =====================================================
+# Shipment Tracker System - Application Configuration
+# =====================================================
+
+# Server configuration
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# Spring configuration
+spring:
+  application:
+    name: Shipment Tracker System
+
+  # H2 in-memory database configuration
+  # Using PostgreSQL compatibility mode for better SQL standard compliance
+  datasource:
+    url: jdbc:h2:mem:shipment-tracker-db;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE;MODE=PostgreSQL
+    driverClassName: org.h2.Driver
+    username: admin
+    password:
+
+  # SQL initialization configuration
+  # We use explicit SQL scripts instead of JPA auto-DDL for better control and portability
+  sql:
+    init:
+      mode: always                          # Always execute initialization scripts on startup
+      schema-locations: classpath:schema.sql # DDL script to create table structure
+      data-locations: classpath:data.sql     # DML script to load initial test data
+
+  # H2 console for database inspection during development
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+  # JPA/Hibernate configuration
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      # ddl-auto: none - We disable Hibernate auto-DDL generation
+      # Reason: We want explicit control over schema via schema.sql for:
+      #   1. Better version control of database structure
+      #   2. Explicit indexes and constraints definition
+      #   3. Production-like environment simulation
+      #   4. Easier migration to real databases
+      ddl-auto: none
+    show-sql: true                          # Log SQL statements for debugging
+    properties:
+      hibernate:
+        format_sql: true                    # Pretty-print SQL in logs
+        use_sql_comments: true              # Add contextual comments to SQL
+    # defer-datasource-initialization: true
+    # Critical: Ensures schema.sql and data.sql run BEFORE Hibernate validates entity mappings
+    # Without this, Hibernate would fail trying to validate entities against non-existent tables
+    defer-datasource-initialization: true
+
+  # Kafka configuration
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all                             # Wait for all replicas to acknowledge
+      retries: 3                            # Retry failed sends
+      properties:
+        linger.ms: 10                       # Batch messages for better throughput
+        compression.type: snappy            # Compress messages
+    consumer:
+      group-id: shipment-notification-service
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest           # Start from beginning if no offset exists
+      enable-auto-commit: false             # Manual commit for better control
+      properties:
+        spring.json.trusted.packages: "*"   # Trust all packages for deserialization
+    listener:
+      ack-mode: manual                      # Manual acknowledgment for better control
+
+# Kafka Topics Configuration
+kafka:
+  topics:
+    shipment-status-changes: shipment-status-changes
+
+# External API Configuration
+external:
+  api:
+    shipment:
+      base-url: https://jsonplaceholder.typicode.com  # Placeholder - replace with actual API
+      timeout: 5000                         # Timeout in milliseconds
+      retry:
+        max-attempts: 3
+        backoff-delay: 1000                 # Initial backoff delay in ms
+
+# Logging configuration
+logging:
+  level:
+    root: INFO
+    com.mpowerplus.shipmenttrackersystem: DEBUG
+    org:
+      hibernate:
+        SQL: DEBUG
+        type:
+          descriptor:
+            sql:
+              BasicBinder: TRACE
+      springframework:
+        kafka: INFO
+        web: INFO
+      apache:
+        kafka: WARN
+
+# Actuator configuration for monitoring and metrics
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"                        # Expose all actuator endpoints
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always                  # Always show detailed health information
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+# SpringDoc OpenAPI (Swagger) configuration
+springdoc:
+  api-docs:
+    path: /api-docs                         # OpenAPI JSON endpoint
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html                  # Swagger UI endpoint
+    enabled: true
+    tags-sorter: alpha                      # Sort tags alphabetically
+    operations-sorter: alpha                # Sort operations alphabetically
+    display-request-duration: true
+    filter: true
+  show-actuator: true                       # Show actuator endpoints in Swagger
+
+# Application-specific configuration
+app:
+  tracking:
+    check-interval: 60000                   # Interval to check external API (ms)
+    max-retries: 3
+  notification:
+    enabled: true
