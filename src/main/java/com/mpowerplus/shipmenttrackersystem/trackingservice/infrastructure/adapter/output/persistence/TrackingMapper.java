@@ -1,6 +1,5 @@
 package com.mpowerplus.shipmenttrackersystem.trackingservice.infrastructure.adapter.output.persistence;
 
-import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.ShipmentStatus;
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.Tracking;
 import com.mpowerplus.shipmenttrackersystem.trackingservice.domain.model.TrackingId;
 import org.springframework.stereotype.Component;
